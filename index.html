@@ -1,0 +1,73 @@
+﻿<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <title>Unity Web Player | RE_Web</title>
+
+  <!-- ①　全螢幕排版 ─ 強制 html / body / container / canvas 都 100% -->
+  <style>
+    html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;}
+    #unity-container{width:100%;height:100%;position:relative;}
+    #unity-canvas{width:100%;height:100%;}
+  </style>
+
+  <link rel="shortcut icon" href="TemplateData/favicon.ico">
+</head>
+<body>
+  <!-- ②　只留下必要容器，其他載入條(loading bar / logo / progress)通通移除 -->
+  <div id="unity-container">
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    <div id="unity-warning"></div>
+    <div id="unity-footer">
+      <div id="unity-logo-title-footer"></div>
+      <div id="unity-fullscreen-button"></div>
+      <div id="unity-build-title">RE_Web</div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.querySelector('#unity-canvas');
+
+    // ─── 自訂錯誤 / 警告提示（選用） ───
+    function unityShowBanner(msg, type) {
+      const warningBanner = document.querySelector('#unity-warning');
+      const div = document.createElement('div');
+      div.textContent = msg;
+      div.style = `background:${type==='error'?'red':'yellow'};padding:10px;`;
+      warningBanner.appendChild(div);
+    }
+
+    const buildUrl = 'Build';
+    const config = {
+      dataUrl:        buildUrl + '/WebGame.data.unityweb',
+      frameworkUrl:   buildUrl + '/WebGame.framework.js.unityweb',
+      codeUrl:        buildUrl + '/WebGame.wasm.unityweb',
+      streamingAssetsUrl: 'StreamingAssets',
+      companyName:    'ArtRice',
+      productName:    'RE_Web',
+      productVersion: '0.1',
+      showBanner:     unityShowBanner,
+    };
+
+    // 手機加 viewport，與原範例一致
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      const meta = document.createElement('meta');
+      meta.name = 'viewport';
+      meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+      document.head.appendChild(meta);
+    }
+
+    // ─── 載入 Unity loader ───
+    const script = document.createElement('script');
+    script.src = buildUrl + '/WebGame.loader.js';
+    script.onload = () => {
+      createUnityInstance(canvas, config, () => {/* 可加進度條 callback，但此版不顯示 */})
+        .then(unity => {
+          document.querySelector('#unity-fullscreen-button').onclick = () => unity.SetFullscreen(1);
+        })
+        .catch(alert);
+    };
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>
