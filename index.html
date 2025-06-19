@@ -8,76 +8,65 @@
   <style>
     /*─── 全螢幕 CSS：DOM 永遠鋪滿 ───*/
     html, body {
-      margin: 0; padding: 0;
-      width: 100%; height: 100%;
-      overflow: hidden;
-      background: #000;
+      margin:0; padding:0;
+      width:100%; height:100%;
+      overflow:hidden;
+      background:#000;
     }
     #unity-container {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      /* 預設不旋轉 */
-      transform: none;
+      position:fixed;
+      top:0; left:0;
+      width:100%; height:100%;
+      transform:none;
+      transform-origin:center center;
     }
     #unity-canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-      background: #231F20;
+      display:block;
+      width:100%; height:100%;
+      background:#231F20;
     }
 
-    /*─── 手機豎屏時左轉 90° ───*/
-    @media only screen 
-      and (max-width: 1024px)       /* 手機板偵測，可自行調整數值 */
-      and (orientation: portrait) {  /* 只在「豎屏」下生效 */
-      #unity-container {
-        width: 100vh;        /* 用 vh 當成新寬度 */
-        height: 100vw;       /* 用 vw 當成新高度 */
-        top: 50%; left: 50%; /* 以中心為定位點 */
-        transform: 
-          rotate(-90deg)     /* 左轉 90° */
-          translate(-50%, -50%);
-        transform-origin: center center;
-      }
-      /* canvas 同步滿版即可 */
-      #unity-canvas {
-        width: 100%;
-        height: 100%;
-      }
+    /*─── 只有當 #unity-container 有 portrait-rotate 時才轉 ───*/
+    #unity-container.portrait-rotate {
+      width:100vh;    /* 互換寬高 */
+      height:100vw;
+      top:50%; left:50%;
+      transform:
+        rotate(-90deg)
+        translate(-50%,-50%);
     }
 
-    /*─── 補回 Loading 條 與 Logo 樣式 ───*/
+    /*─── Loading 條 與 Logo 樣式 ───*/
     #unity-loading-bar {
-      position: absolute;
-      left: 50%; top: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      pointer-events: none;
-      user-select: none;
-      z-index: 10;
+      position:absolute;
+      left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      text-align:center;
+      pointer-events:none;
+      user-select:none;
+      z-index:10;
     }
     #unity-logo {
-      width: 154px; height: 154px;
-      background: url('TemplateData/unity-logo-dark.png') no-repeat center;
-      margin: 0 auto;
+      width:154px; height:154px;
+      background:url('TemplateData/unity-logo-dark.png') no-repeat center;
+      margin:0 auto;
     }
     #unity-progress-bar-empty {
-      width: 300px; height: 20px;
-      background: #444;
-      margin: 10px auto 0;
-      border-radius: 10px;
-      overflow: hidden;
+      width:300px; height:20px;
+      background:#444;
+      margin:10px auto 0;
+      border-radius:10px;
+      overflow:hidden;
     }
     #unity-progress-bar-full {
-      width: 0%; height: 100%;
-      background: #29a;
-      transition: width 0.1s;
+      width:0%; height:100%;
+      background:#29a;
+      transition:width 0.1s;
     }
 
-    /*─── 其他 footer / warning （可保留或移除） ───*/
-    #unity-footer { position: relative; }
-    .unity-mobile #unity-footer { display: none; }
+    /*─── footer / warning（如需可留） ───*/
+    #unity-footer { position:relative; }
+    .unity-mobile #unity-footer { display:none; }
     #unity-logo-title-footer {
       float:left; width:102px; height:38px;
       background:url('TemplateData/unity-logo-title-footer.png') no-repeat center;
@@ -87,7 +76,8 @@
       line-height:38px; font-family:arial; font-size:18px;
     }
     #unity-fullscreen-button {
-      cursor:pointer; float:right; width:38px; height:38px;
+      cursor:pointer; float:right;
+      width:38px; height:38px;
       background:url('TemplateData/fullscreen-button.png') no-repeat center;
     }
     #unity-warning {
@@ -97,6 +87,7 @@
     }
   </style>
 </head>
+
 <body>
   <div id="unity-container">
     <!-- Loading 條 -->
@@ -120,69 +111,89 @@
   </div>
 
   <script>
-    const canvas = document.getElementById('unity-canvas');
+    const canvas   = document.getElementById('unity-canvas');
+    const container= document.getElementById('unity-container');
     let unityInstance = null;
 
-    // 初始化解析度
-    function initCanvasSize() {
+    // 檢查是否為行動裝置（簡單版）
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+    // 初始化 canvas 大小
+    function initCanvasSize(){
       canvas.width  = window.innerWidth;
       canvas.height = window.innerHeight;
     }
     initCanvasSize();
-    // Resize 後 200ms 更新一次
+
+    // 根據設備 & 方向決定要不要轉
+    function updateRotation(){
+      if(!isMobile) {
+        container.classList.remove('portrait-rotate');
+        return;
+      }
+      // 若行動裝置且豎屏 (height>width) 就加 class
+      if(window.innerHeight > window.innerWidth){
+        container.classList.add('portrait-rotate');
+      } else {
+        container.classList.remove('portrait-rotate');
+      }
+    }
+    updateRotation();
+
+    // resize 後節流呼叫
     let resizeTimer;
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(initCanvasSize, 200);
+      initCanvasSize();
+      resizeTimer = setTimeout(updateRotation, 200);
     });
 
-    // Unity Config
+    // Unity config
     const buildUrl = 'Build';
     const config = {
-      dataUrl:            buildUrl + '/WebGame.data.unityweb',
-      frameworkUrl:       buildUrl + '/WebGame.framework.js.unityweb',
-      codeUrl:            buildUrl + '/WebGame.wasm.unityweb',
-      streamingAssetsUrl: 'StreamingAssets',
-      companyName:        'ArtRice',
-      productName:        'RE_Web',
-      productVersion:     '0.1',
-      devicePixelRatio:   1,
+      dataUrl:              buildUrl+'/WebGame.data.unityweb',
+      frameworkUrl:         buildUrl+'/WebGame.framework.js.unityweb',
+      codeUrl:              buildUrl+'/WebGame.wasm.unityweb',
+      streamingAssetsUrl:   'StreamingAssets',
+      companyName:          'ArtRice',
+      productName:          'RE_Web',
+      productVersion:       '0.1',
+      devicePixelRatio:     1,
       matchWebGLToCanvasSize: false,
-      showBanner: (msg, type) => {
-        const warning = document.getElementById('unity-warning');
-        const div = document.createElement('div');
-        div.textContent = msg;
-        div.style = `background:${type==='error'?'red':'yellow'};padding:10px;`;
-        warning.appendChild(div);
-        if (type!=='error') setTimeout(()=>warning.removeChild(div),5000);
+      showBanner: (msg,type) => {
+        const w = document.getElementById('unity-warning');
+        const d = document.createElement('div');
+        d.textContent = msg;
+        d.style = `background:${type==='error'?'red':'yellow'};padding:8px;`;
+        w.appendChild(d);
+        if(type!=='error') setTimeout(()=>w.removeChild(d),3000);
       }
     };
 
-    // Mobile viewport
-    if(/iPhone|iPad|Android/i.test(navigator.userAgent)) {
-      const meta = document.createElement('meta');
-      meta.name    = 'viewport';
-      meta.content = 'width=device-width,height=device-height,initial-scale=1.0,user-scalable=no,shrink-to-fit=yes';
-      document.head.appendChild(meta);
+    // mobile viewport
+    if(isMobile){
+      const m = document.createElement('meta');
+      m.name='viewport';
+      m.content='width=device-width,height=device-height,initial-scale=1.0,user-scalable=no,shrink-to-fit=yes';
+      document.head.appendChild(m);
     }
 
-    // Load Unity
+    // load Unity
     const loader = document.createElement('script');
-    loader.src = buildUrl + '/WebGame.loader.js';
+    loader.src = buildUrl+'/WebGame.loader.js';
     loader.onload = () => {
-      createUnityInstance(canvas, config, (progress) => {
-        document.getElementById('unity-progress-bar-full').style.width =
-          (100 * progress) + '%';
-      }).then(instance => {
-        unityInstance = instance;
+      createUnityInstance(canvas, config, (p) => {
+        document.getElementById('unity-progress-bar-full').style.width = (p*100)+'%';
+      }).then(inst => {
+        unityInstance = inst;
         document.getElementById('unity-loading-bar').style.display = 'none';
         document.getElementById('unity-fullscreen-button')
-                .onclick = () => instance.SetFullscreen(1);
+                .onclick = ()=>inst.SetFullscreen(1);
       }).catch(alert);
     };
     document.body.appendChild(loader);
 
-    // Prevent iOS bounce
+    // iOS bounce prevent
     document.documentElement.style.overscrollBehavior = 'none';
     document.documentElement.style.touchAction       = 'none';
   </script>
