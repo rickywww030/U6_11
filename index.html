@@ -64,16 +64,16 @@
     let unityInstance = null;
 
     /* ===== 共用：設定畫布解析度 ===== */
-    function setCanvasSize() {
-      /* 如果被旋轉，寬高要相反取值 */
-      if (container.classList.contains('rotate-90')) {
-        canvas.width  = window.innerHeight;
-        canvas.height = window.innerWidth;
-      } else {
-        canvas.width  = window.innerWidth;
-        canvas.height = window.innerHeight;
-      }
-    }
+ function setCanvasStyleSize() {
+   /* 對 <canvas> 用 style 控制即可，因為 Unity 會偵測 CSS 大小 */
+   if (container.classList.contains('rotate-90')) {
+    canvas.style.width  = window.innerHeight + 'px';
+     canvas.style.height = window.innerWidth  + 'px';
+   } else {
+     canvas.style.width  = window.innerWidth  + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+   }
+ }
 
     /* ===== 行動裝置偵測 + 方向判斷 ===== */
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -84,7 +84,7 @@
       } else {
         container.classList.remove('rotate-90');
       }
-      setCanvasSize();
+      setCanvasStyleSize();
     }
     updateOrientation();
     window.addEventListener('resize', () => {
@@ -104,7 +104,7 @@
       productName:        'RE_Web',
       productVersion:     '0.1',
       devicePixelRatio:   1,
-      matchWebGLToCanvasSize:false,
+      matchWebGLToCanvasSize:true,
       showBanner: (msg, type) => {
         const warning = document.getElementById('unity-warning');
         const div = document.createElement('div');
