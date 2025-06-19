@@ -3,34 +3,26 @@
 <head>
   <meta charset="utf-8">
   <title>Unity Web Player | RE_Web</title>
-  <link rel="shortcut icon" href="TemplateData/favicon.ico">
-
   <style>
-    /*─── 全螢幕 CSS：DOM 永遠鋪滿 ───*/
-    html, body {
-      margin: 0; padding: 0;
-      width: 100%; height: 100%;
-      overflow: hidden;
-      background: #000;
-    }
+    html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;}
+    /* 1. 容器一律 100%×100%，真正縮放用 transform */
     #unity-container {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-    }
-    /* 畫布 DOM 大小全螢幕，形變時跟著拉伸 */
-    #unity-canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
+      position:fixed;top:0;left:0;
+      width:100%; height:100%;
+      transform-origin: top left;
+      will-change: transform;
       background: #231F20;
     }
-    /* 隱藏原本 loading bar */
-    #unity-loading-bar,
-    #unity-logo,
-    #unity-progress-bar-empty,
-    #unity-progress-bar-full {
-      display: none !important;
+    /* 2. Canvas 固定在當前解析度 */
+    #unity-canvas {
+      display:block;
+      /* 下面 width/height 由 JS 一次性設定成內部解析度 */
+      background:#231F20;
+    }
+    /* 隱藏 loading 元件 */
+    #unity-loading-bar,#unity-logo,
+    #unity-progress-bar-empty,#unity-progress-bar-full{
+      display:none!important;
     }
   </style>
 </head>
@@ -38,65 +30,66 @@
   <div id="unity-container">
     <canvas id="unity-canvas" tabindex="-1"></canvas>
   </div>
-
   <script>
-    const canvas = document.getElementById('unity-canvas');
-    let unityInstance = null;
+    const canvas    = document.getElementById('unity-canvas');
+    const container = document.getElementById('unity-container');
+    let unityInstance;
 
-    // 一開始和 resize 結束後，設定一次內部解析度
-    function updateInternalResolution() {
-      canvas.width  = window.innerWidth;
-      canvas.height = window.innerHeight;
+    // ---- ①：初始化 Canvas 內部解析度 ----
+    function setInternalResolution(){
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      canvas.width  = w;
+      canvas.height = h;
+      canvas.style.width  = w + 'px';
+      canvas.style.height = h + 'px';
     }
-    updateInternalResolution();  // 初始
-    let resizeTimer = null;
+    setInternalResolution();
+
+    // ---- ②：用 GPU transform 平滑縮放 ----
+    function updateScale(){
+      const sx = window.innerWidth  / canvas.width;
+      const sy = window.innerHeight / canvas.height;
+      container.style.transform = `scale(${sx},${sy})`;
+    }
+    // 一開始就做一次
+    updateScale();
+    // 拖拉／縮放中：CSS 立即生效，GPU 來執行
+    window.addEventListener('resize', updateScale);
+
+    // ---- ③：resize 完成後再更新 真實解析度 （200ms 節流）----
+    let resizeDone;
     window.addEventListener('resize', () => {
-      clearTimeout(resizeTimer);
-      // 200ms 之後再更新解析度，拖曳過程中只靠 CSS 變形
-      resizeTimer = setTimeout(updateInternalResolution, 200);
+      clearTimeout(resizeDone);
+      resizeDone = setTimeout(() => {
+        setInternalResolution();   // 更新 canvas 內部解析度
+        updateScale();             // 重新根據新解析度計算 scale
+      }, 200);
     });
 
-    // Unity 建置參數
+    // ---- ④：載入 Unity ----
     const buildUrl = 'Build';
     const config = {
-      dataUrl:            buildUrl + '/WebGame.data.unityweb',
-      frameworkUrl:       buildUrl + '/WebGame.framework.js.unityweb',
-      codeUrl:            buildUrl + '/WebGame.wasm.unityweb',
-      streamingAssetsUrl: 'StreamingAssets',
-      companyName:        'ArtRice',
-      productName:        'RE_Web',
-      productVersion:     '0.1',
-      devicePixelRatio:   1,           // 降低高DPI負擔
-      matchWebGLToCanvasSize: false,   // 關閉自動同步
-      showBanner: (msg, type) => {     // 可選：顯示錯誤/警告
-        const div = document.createElement('div');
-        div.textContent = msg;
-        div.style = `position:absolute;top:10px;left:10px;
-                     background:${type==='error'?'#f88':'#ff8'};
-                     padding:8px;`;
-        document.body.appendChild(div);
-        if (type!=='error') setTimeout(()=>div.remove(), 3000);
-      },
+      dataUrl:      buildUrl+'/WebGame.data.unityweb',
+      frameworkUrl: buildUrl+'/WebGame.framework.js.unityweb',
+      codeUrl:      buildUrl+'/WebGame.wasm.unityweb',
+      streamingAssetsUrl:'StreamingAssets',
+      companyName:'ArtRice',productName:'RE_Web',productVersion:'0.1',
+      devicePixelRatio:1,
+      matchWebGLToCanvasSize:false,
+      showBanner:(msg,type)=>console.log(type,msg),
     };
-
-    // 手機 viewport
-    if (/iPhone|iPad|Android/i.test(navigator.userAgent)) {
-      const meta = document.createElement('meta');
-      meta.name    = 'viewport';
-      meta.content = 'width=device-width,height=device-height,initial-scale=1.0,'+
-                     'user-scalable=no,shrink-to-fit=yes';
-      document.head.appendChild(meta);
+    if(/iPhone|Android/.test(navigator.userAgent)){
+      const m = document.createElement('meta');
+      m.name='viewport'; m.content='width=device-width,height=device-height,initial-scale=1.0,user-scalable=no';
+      document.head.appendChild(m);
     }
-
-    // 載入 Unity loader
     const loader = document.createElement('script');
     loader.src = buildUrl + '/WebGame.loader.js';
     loader.onload = () => {
-      createUnityInstance(canvas, config, () => {/* 不顯示進度 */})
-        .then(instance => {
-          unityInstance = instance;
-        })
-        .catch(err => alert(err));
+      createUnityInstance(canvas, config, ()=>{})
+        .then(inst => unityInstance = inst)
+        .catch(alert);
     };
     document.body.appendChild(loader);
   </script>
