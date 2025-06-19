@@ -4,211 +4,142 @@
   <meta charset="utf-8">
   <title>Unity Web Player | RE_Web</title>
   <link rel="shortcut icon" href="TemplateData/favicon.ico">
-
   <style>
-    /*─── 全螢幕 CSS：DOM 永遠鋪滿 ───*/
-    html, body {
-      margin: 0; padding: 0;
-      width: 100%; height: 100%;
-      overflow: hidden;
-      background: #000;
-    }
-    #unity-container {
-      position: fixed;
-      top: 0; left: 0;
-      transform-origin: center center;
-      background: #000;
-    }
-    #unity-canvas {
-      display: block;
-      width: 100%; height: 100%;
-      background: #231F20;
-    }
+    /*─── 全螢幕 ───*/
+    html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;}
+
+    #unity-container{position:fixed;top:0;left:0;width:100%;height:100%;}
+    #unity-canvas{display:block;width:100%;height:100%;background:#231F20;}
 
     /*─── Loading 條 ───*/
-    #unity-loading-bar {
-      position: absolute;
-      left: 50%; top: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      pointer-events: none;
-      user-select: none;
-      z-index: 10;
-    }
-    #unity-logo {
-      width: 154px; height: 154px;
-      background: url('TemplateData/unity-logo-dark.png') no-repeat center;
-      margin: 0 auto;
-    }
-    #unity-progress-bar-empty {
-      width: 300px; height: 20px;
-      background: #444;
-      margin: 10px auto 0;
-      border-radius: 10px;
-      overflow: hidden;
-    }
-    #unity-progress-bar-full {
-      width: 0%; height: 100%;
-      background: #29a;
-      transition: width 0.1s;
-    }
+    #unity-loading-bar{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+                       text-align:center;pointer-events:none;user-select:none;z-index:10;}
+    #unity-logo{width:154px;height:154px;background:url('TemplateData/unity-logo-dark.png') no-repeat center;margin:0 auto;}
+    #unity-progress-bar-empty{width:300px;height:20px;background:#444;margin:10px auto 0;border-radius:10px;overflow:hidden;}
+    #unity-progress-bar-full{width:0%;height:100%;background:#29a;transition:width .1s;}
 
-    /*─── Footer & Warning ───*/
-    #unity-warning {
-      position: absolute;
-      left: 50%; top: 5%;
-      transform: translateX(-50%);
-      background: #fff; padding: 10px;
-      display: none;
-      z-index: 10;
-    }
-    #unity-footer {
-      position: absolute;
-      bottom: 10px; left: 0;
-      width: 100%;
-      text-align: center;
-      z-index: 5;
-    }
-    #unity-logo-title-footer {
-      display: inline-block;
-      width: 102px; height: 38px;
-      background: url('TemplateData/unity-logo-title-footer.png') no-repeat center;
-      vertical-align: middle;
-    }
-    #unity-build-title {
-      display: inline-block;
-      margin-left: 20px;
-      line-height: 38px; font-family: arial; font-size: 18px;
-      vertical-align: middle; color: #fff;
-    }
-    #unity-fullscreen-button {
-      display: inline-block;
-      margin-left: 20px;
-      width: 38px; height: 38px;
-      background: url('TemplateData/fullscreen-button.png') no-repeat center;
-      cursor: pointer;
-      vertical-align: middle;
+    /*─── Footer / warning ───*/
+    #unity-footer{position:relative;}
+    .unity-mobile #unity-footer{display:none;}
+    #unity-logo-title-footer{float:left;width:102px;height:38px;background:url('TemplateData/unity-logo-title-footer.png') no-repeat center;}
+    #unity-build-title{float:right;margin-right:10px;line-height:38px;font-family:arial;font-size:18px;}
+    #unity-fullscreen-button{cursor:pointer;float:right;width:38px;height:38px;background:url('TemplateData/fullscreen-button.png') no-repeat center;}
+    #unity-warning{position:absolute;left:50%;top:5%;transform:translateX(-50%);background:#fff;padding:10px;display:none;}
+
+    /*─── 行動裝置直向時左轉 90° ───*/
+    .rotate-90{
+      position:fixed;                 /* 讓旋轉後占滿螢幕 */
+      top:0;left:0;
+      width:100vh;                    /* 注意：交換寬高 */
+      height:100vw;
+      transform-origin:top left;
+      transform:rotate(-90deg) translate(-100% ,0);
+      /* 关闭 iOS 橡皮筋效果對 Unity 畫面衝擊 */
+      overscroll-behavior:none;touch-action:none;
     }
   </style>
 </head>
 <body>
   <div id="unity-container">
-    <!-- Loading 條 -->
+    <!-- Loading -->
     <div id="unity-loading-bar">
       <div id="unity-logo"></div>
-      <div id="unity-progress-bar-empty">
-        <div id="unity-progress-bar-full"></div>
-      </div>
+      <div id="unity-progress-bar-empty"><div id="unity-progress-bar-full"></div></div>
     </div>
-    <!-- Canvas -->
+
+    <!-- Unity Canvas -->
     <canvas id="unity-canvas" tabindex="-1"></canvas>
-    <!-- Warning -->
+
     <div id="unity-warning"></div>
-    <!-- Footer -->
     <div id="unity-footer">
       <div id="unity-logo-title-footer"></div>
-      <div id="unity-build-title">RE_Web</div>
       <div id="unity-fullscreen-button"></div>
+      <div id="unity-build-title">RE_Web</div>
     </div>
   </div>
 
   <script>
-    (function() {
-      const container = document.getElementById('unity-container');
-      const canvas    = document.getElementById('unity-canvas');
-      let unityInstance = null;
+    const canvas = document.getElementById('unity-canvas');
+    const container = document.getElementById('unity-container');
+    let unityInstance = null;
 
-      // 判斷行動裝置
-      const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-
-      // 設定 canvas 實際解析度 & container 大小
-      function resizeAll() {
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-        // 預設：canvas 填滿 container
-        canvas.width  = w;
-        canvas.height = h;
-
-        // 若手機豎屏，交換寬高並旋轉
-        if (isMobile && h > w) {
-          container.style.width  = h + 'px';
-          container.style.height = w + 'px';
-          // translate 將旋轉後的區域移到正中
-          container.style.transform =
-            `translate(${(w - h) / 2}px, ${(h - w) / 2}px) rotate(-90deg)`;
-        } else {
-          // 否則恢復原狀
-          container.style.width  = w + 'px';
-          container.style.height = h + 'px';
-          container.style.transform = 'none';
-        }
+    /* ===== 共用：設定畫布解析度 ===== */
+    function setCanvasSize() {
+      /* 如果被旋轉，寬高要相反取值 */
+      if (container.classList.contains('rotate-90')) {
+        canvas.width  = window.innerHeight;
+        canvas.height = window.innerWidth;
+      } else {
+        canvas.width  = window.innerWidth;
+        canvas.height = window.innerHeight;
       }
+    }
 
-      // 初始與 resize 事件
-      window.addEventListener('resize', () => {
-        resizeAll();
-      });
-      resizeAll();
-
-      // Unity 建置參數
-      const buildUrl = 'Build';
-      const config = {
-        dataUrl:            buildUrl + '/WebGame.data.unityweb',
-        frameworkUrl:       buildUrl + '/WebGame.framework.js.unityweb',
-        codeUrl:            buildUrl + '/WebGame.wasm.unityweb',
-        streamingAssetsUrl: 'StreamingAssets',
-        companyName:        'ArtRice',
-        productName:        'RE_Web',
-        productVersion:     '0.1',
-        devicePixelRatio:   1,
-        matchWebGLToCanvasSize: false,
-        showBanner: (msg, type) => {
-          const warning = document.getElementById('unity-warning');
-          warning.style.display = 'block';
-          const div = document.createElement('div');
-          div.textContent = msg;
-          div.style =
-            'background:' + (type==='error' ? 'red' : 'yellow') +
-            ';padding:8px;margin-bottom:4px;';
-          warning.appendChild(div);
-          if (type !== 'error') {
-            setTimeout(() => {
-              if (warning.contains(div)) warning.removeChild(div);
-            }, 3000);
-          }
-        }
-      };
-
-      // Mobile viewport meta
-      if (isMobile) {
-        const meta = document.createElement('meta');
-        meta.name    = 'viewport';
-        meta.content = 'width=device-width,height=device-height,initial-scale=1.0,user-scalable=no,shrink-to-fit=yes';
-        document.head.appendChild(meta);
+    /* ===== 行動裝置偵測 + 方向判斷 ===== */
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    function updateOrientation() {
+      if (isMobile && window.innerHeight > window.innerWidth) {
+        /* 直拿手機：加旋轉 */
+        container.classList.add('rotate-90');
+      } else {
+        container.classList.remove('rotate-90');
       }
+      setCanvasSize();
+    }
+    updateOrientation();
+    window.addEventListener('resize', () => {
+      clearTimeout(window.__resizeTimer);
+      window.__resizeTimer = setTimeout(updateOrientation, 200);
+    });
+    window.addEventListener('orientationchange', () => setTimeout(updateOrientation, 100));
 
-      // 載入 Unity loader
-      const loader = document.createElement('script');
-      loader.src = buildUrl + '/WebGame.loader.js';
-      loader.onload = () => {
-        createUnityInstance(canvas, config, (progress) => {
-          document.getElementById('unity-progress-bar-full').style.width =
-            (progress * 100) + '%';
-        }).then(instance => {
-          unityInstance = instance;
-          // 隱藏 loading bar
-          document.getElementById('unity-loading-bar').style.display = 'none';
-          // 全螢幕按鈕
-          document.getElementById('unity-fullscreen-button').onclick =
-            () => instance.SetFullscreen(1);
-        }).catch(err => alert(err));
-      };
-      document.body.appendChild(loader);
+    /* ===== Unity 建置參數 ===== */
+    const buildUrl = 'Build';
+    const config = {
+      dataUrl:            buildUrl + '/WebGame.data.unityweb',
+      frameworkUrl:       buildUrl + '/WebGame.framework.js.unityweb',
+      codeUrl:            buildUrl + '/WebGame.wasm.unityweb',
+      streamingAssetsUrl: 'StreamingAssets',
+      companyName:        'ArtRice',
+      productName:        'RE_Web',
+      productVersion:     '0.1',
+      devicePixelRatio:   1,
+      matchWebGLToCanvasSize:false,
+      showBanner: (msg, type) => {
+        const warning = document.getElementById('unity-warning');
+        const div = document.createElement('div');
+        div.textContent = msg;
+        div.style=`background:${type==='error'?'red':'yellow'};padding:10px;`;
+        warning.appendChild(div);
+        if (type!=='error') setTimeout(()=>warning.removeChild(div),5000);
+      }
+    };
 
-      // Prevent iOS bounce
-      document.documentElement.style.overscrollBehavior = 'none';
-      document.documentElement.style.touchAction       = 'none';
-    })();
+    /* 行動裝置 viewport meta（維持原寫法） */
+    if (isMobile) {
+      const meta = document.createElement('meta');
+      meta.name='viewport';
+      meta.content='width=device-width,height=device-height,initial-scale=1.0,user-scalable=no,shrink-to-fit=yes';
+      document.head.appendChild(meta);
+    }
+
+    /* ===== 載入 Unity ===== */
+    const loader = document.createElement('script');
+    loader.src = buildUrl + '/WebGame.loader.js';
+    loader.onload = () => {
+      createUnityInstance(canvas, config, (progress) => {
+        document.getElementById('unity-progress-bar-full').style.width = (100*progress)+'%';
+      }).then(instance => {
+        unityInstance = instance;
+        document.getElementById('unity-loading-bar').style.display='none';
+        document.getElementById('unity-fullscreen-button').onclick=()=>instance.SetFullscreen(1);
+      }).catch(alert);
+    };
+    document.body.appendChild(loader);
+
+    /* 防止 iOS 橡皮筋滑動暫停 WebGL context */
+    document.documentElement.style.overscrollBehavior='none';
+    document.documentElement.style.touchAction='none';
   </script>
 </body>
 </html>
